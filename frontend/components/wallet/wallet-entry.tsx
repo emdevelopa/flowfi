@@ -1,20 +1,7 @@
 "use client";
 
+import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { useWallet } from "@/context/wallet-context";
-import { shortenPublicKey } from "@/lib/wallet";
-
-function formatConnectedAt(timestamp: string): string {
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return timestamp;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 export function WalletEntry() {
   const {
@@ -44,52 +31,7 @@ export function WalletEntry() {
   }
 
   if (status === "connected" && session) {
-    return (
-      <main className="app-shell">
-        <section className="wallet-panel connected-panel">
-          <p className="kicker">Wallet Connected</p>
-          <h1>FlowFi Access Granted</h1>
-          <p className="subtitle">
-            Your wallet session is active. Continue into payment streams and
-            subscriptions.
-          </p>
-
-          <p className="connected-wallet">{session.walletName}</p>
-
-          <div className="connected-meta">
-            <div className="connected-row">
-              <span>Public key</span>
-              <strong>{shortenPublicKey(session.publicKey)}</strong>
-            </div>
-            <div className="connected-row">
-              <span>Network</span>
-              <strong>{session.network}</strong>
-            </div>
-            <div className="connected-row">
-              <span>Connected at</span>
-              <strong>{formatConnectedAt(session.connectedAt)}</strong>
-            </div>
-          </div>
-
-          {session.mocked ? (
-            <p className="mock-note">
-              Running with a mocked wallet session until full adapter
-              integration is finished.
-            </p>
-          ) : null}
-
-          <div className="connected-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={disconnect}
-            >
-              Disconnect
-            </button>
-          </div>
-        </section>
-      </main>
-    );
+    return <DashboardView session={session} onDisconnect={disconnect} />;
   }
 
   const isConnecting = status === "connecting";

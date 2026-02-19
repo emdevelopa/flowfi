@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useReducer,
 } from "react";
 import {
   SUPPORTED_WALLETS,
@@ -34,6 +34,88 @@ interface WalletContextValue {
 const STORAGE_KEY = "flowfi.wallet.session.v1";
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 const VALID_WALLET_IDS: WalletId[] = ["freighter", "albedo", "xbull"];
+
+interface WalletState {
+  status: WalletStatus;
+  session: WalletSession | null;
+  selectedWalletId: WalletId | null;
+  errorMessage: string | null;
+  isHydrated: boolean;
+}
+
+type WalletAction =
+  | { type: "hydrate"; session: WalletSession | null }
+  | { type: "connect:start"; walletId: WalletId }
+  | { type: "connect:success"; session: WalletSession }
+  | { type: "connect:error"; message: string }
+  | { type: "disconnect" }
+  | { type: "error:clear" };
+
+const INITIAL_STATE: WalletState = {
+  status: "idle",
+  session: null,
+  selectedWalletId: null,
+  errorMessage: null,
+  isHydrated: false,
+};
+
+function walletReducer(state: WalletState, action: WalletAction): WalletState {
+  switch (action.type) {
+    case "hydrate":
+      if (!action.session) {
+        return {
+          ...state,
+          isHydrated: true,
+        };
+      }
+
+      return {
+        status: "connected",
+        session: action.session,
+        selectedWalletId: action.session.walletId,
+        errorMessage: null,
+        isHydrated: true,
+      };
+    case "connect:start":
+      return {
+        ...state,
+        status: "connecting",
+        selectedWalletId: action.walletId,
+        errorMessage: null,
+      };
+    case "connect:success":
+      return {
+        ...state,
+        status: "connected",
+        session: action.session,
+        selectedWalletId: action.session.walletId,
+        errorMessage: null,
+      };
+    case "connect:error":
+      return {
+        ...state,
+        status: "error",
+        session: null,
+        errorMessage: action.message,
+      };
+    case "disconnect":
+      return {
+        ...state,
+        status: "idle",
+        session: null,
+        selectedWalletId: null,
+        errorMessage: null,
+      };
+    case "error:clear":
+      return {
+        ...state,
+        errorMessage: null,
+        status: state.status === "error" ? "idle" : state.status,
+      };
+    default:
+      return state;
+  }
+}
 
 function isWalletSession(value: unknown): value is WalletSession {
   if (!value || typeof value !== "object") {
@@ -93,65 +175,46 @@ function removeStoredSession(): void {
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<WalletStatus>("idle");
-  const [session, setSession] = useState<WalletSession | null>(null);
-  const [selectedWalletId, setSelectedWalletId] = useState<WalletId | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [state, dispatch] = useReducer(walletReducer, INITIAL_STATE);
 
   useEffect(() => {
     const existingSession = readStoredSession();
-
-    if (existingSession) {
-      setSession(existingSession);
-      setSelectedWalletId(existingSession.walletId);
-      setStatus("connected");
-    }
-
-    setIsHydrated(true);
+    dispatch({ type: "hydrate", session: existingSession });
   }, []);
 
   const clearError = useCallback(() => {
-    setErrorMessage(null);
-    setStatus((currentStatus) =>
-      currentStatus === "error" ? "idle" : currentStatus,
-    );
+    dispatch({ type: "error:clear" });
   }, []);
 
   const connect = useCallback(async (walletId: WalletId) => {
-    setSelectedWalletId(walletId);
-    setErrorMessage(null);
-    setStatus("connecting");
+    dispatch({ type: "connect:start", walletId });
 
     try {
       const nextSession = await connectWallet(walletId);
-      setSession(nextSession);
-      setStatus("connected");
+      dispatch({ type: "connect:success", session: nextSession });
       storeSession(nextSession);
     } catch (error) {
-      setSession(null);
-      setStatus("error");
-      setErrorMessage(toWalletErrorMessage(error));
+      dispatch({
+        type: "connect:error",
+        message: toWalletErrorMessage(error),
+      });
       removeStoredSession();
     }
   }, []);
 
   const disconnect = useCallback(() => {
-    setStatus("idle");
-    setSession(null);
-    setSelectedWalletId(null);
-    setErrorMessage(null);
+    dispatch({ type: "disconnect" });
     removeStoredSession();
   }, []);
 
   const value = useMemo<WalletContextValue>(
     () => ({
       wallets: SUPPORTED_WALLETS,
-      status,
-      session,
-      selectedWalletId,
-      errorMessage,
-      isHydrated,
+      status: state.status,
+      session: state.session,
+      selectedWalletId: state.selectedWalletId,
+      errorMessage: state.errorMessage,
+      isHydrated: state.isHydrated,
       connect,
       disconnect,
       clearError,
@@ -160,11 +223,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       clearError,
       connect,
       disconnect,
-      errorMessage,
-      isHydrated,
-      selectedWalletId,
-      session,
-      status,
+      state.errorMessage,
+      state.isHydrated,
+      state.selectedWalletId,
+      state.session,
+      state.status,
     ],
   );
 
