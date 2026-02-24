@@ -278,6 +278,24 @@ impl StreamContract {
         next_id
     }
 
+    fn calculate_claimable(stream: &Stream, now: u64) -> i128 {
+        let elapsed = now.saturating_sub(stream.last_update_time);
+
+        let streamed = (elapsed as i128)
+            .checked_mul(stream.rate_per_second)
+            .unwrap_or(i128::MAX);
+
+        let remaining = stream
+            .deposited_amount
+            .saturating_sub(stream.withdrawn_amount);
+
+        if streamed > remaining {
+            remaining
+        } else {
+            streamed
+        }
+    }
+
     pub fn withdraw(env: Env, recipient: Address, stream_id: u64) -> Result<i128, StreamError> {
         recipient.require_auth();
 
@@ -297,22 +315,8 @@ impl StreamContract {
             return Err(StreamError::StreamInactive);
         }
 
-        // Calculate claimable amount based on elapsed time and rate
-        let current_time = env.ledger().timestamp();
-        let elapsed_time = current_time - stream.last_update_time;
-
-        // Calculate how much has accrued since last update
-        let accrued_amount = (elapsed_time as i128) * stream.rate_per_second;
-
-        // Calculate remaining balance in the stream
-        let remaining_balance = stream.deposited_amount - stream.withdrawn_amount;
-
-        // Claimable is the minimum of accrued amount and remaining balance
-        let claimable = if accrued_amount < remaining_balance {
-            accrued_amount
-        } else {
-            remaining_balance
-        };
+        let now = env.ledger().timestamp();
+        let claimable = Self::calculate_claimable(&stream, now);
 
         if claimable <= 0 {
             return Err(StreamError::InvalidAmount);
@@ -323,7 +327,7 @@ impl StreamContract {
         token_client.transfer(&contract_address, &recipient, &claimable);
 
         stream.withdrawn_amount += claimable;
-        stream.last_update_time = current_time;
+        stream.last_update_time = now;
 
         // Mark stream as inactive if all funds have been withdrawn
         if stream.withdrawn_amount >= stream.deposited_amount {

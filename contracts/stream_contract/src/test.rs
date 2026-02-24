@@ -438,7 +438,7 @@ fn test_top_up_preserves_accrued_amount() {
 
     let contract_id = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &contract_id);
-    let token_client = token::Client::new(&env, &token_address);
+    let _token_client = token::Client::new(&env, &token_address);
 
     // Create stream: 1000 tokens over 1000 seconds = 1 token/second
     let stream_id = client.create_stream(&sender, &recipient, &token_address, &1_000, &1_000);
@@ -511,7 +511,7 @@ fn test_withdraw_time_based_calculation() {
 
     let contract_id = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &contract_id);
-    let token_client = token::Client::new(&env, &token_address);
+    let _token_client = token::Client::new(&env, &token_address);
 
     // Create stream: 1000 tokens over 1000 seconds = 1 token/second
     let stream_id = client.create_stream(&sender, &recipient, &token_address, &1_000, &1_000);
@@ -556,7 +556,7 @@ fn test_withdraw_caps_at_remaining_balance() {
 
     let contract_id = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &contract_id);
-    let token_client = token::Client::new(&env, &token_address);
+    let _token_client = token::Client::new(&env, &token_address);
 
     // Create stream: 100 tokens over 100 seconds = 1 token/second
     let stream_id = client.create_stream(&sender, &recipient, &token_address, &100, &100);
@@ -645,7 +645,7 @@ fn test_cancel_stream_after_partial_withdrawal() {
     client.withdraw(&recipient, &stream_id);
 
     let sender_balance_before = token_client.balance(&sender);
-    let contract_balance_before = token_client.balance(&contract_id);
+    let _contract_balance_before = token_client.balance(&contract_id);
 
     // Advance time by another 100 seconds (100 more tokens accrued)
     env.ledger().with_mut(|l| {
