@@ -668,7 +668,7 @@ export function DashboardView({ session, onDisconnect }: DashboardViewProps) {
 
                 <div className="stream-form__row">
                   <label>
-                    Starts At
+                    Start Date & Time
                     <input
                       required
                       type="datetime-local"
@@ -680,7 +680,7 @@ export function DashboardView({ session, onDisconnect }: DashboardViewProps) {
                   </label>
 
                   <label>
-                    Ends At
+                    End Date & Time
                     <input
                       required
                       type="datetime-local"
